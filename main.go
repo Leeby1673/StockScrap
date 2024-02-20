@@ -47,50 +47,39 @@ func main() {
 		wg.Add(1)
 		go func(sym string) {
 			defer wg.Done()
+			defer fmt.Println("Done 結束")
 
 			// 獲取股票數據
 			stockData, err := getStockData(db, sym)
+			fmt.Println("傳入 channel 之前")
 			if err != nil {
 				log.Printf("Error getting stock data for %s:%v\n", sym, err)
 				return
 			}
 			// 將股票資訊傳送到 channel
 			stockDataCh <- stockData
+			fmt.Println("將資料傳進去 channel")
 		}(symbol)
 	}
 
-	// 啟動一個 goroutine 來接收 channel 中的數據並將其存到資料庫中
+	// 等待所有 goroutine 完成並關閉 channel
 	go func() {
-		for stockData := range stockDataCh {
-			if err := db.Save(&stockData).Error; err != nil {
-				log.Println("Error save to database:", err)
-			}
-		}
-		// // 檢查資料庫中是否已存在相同的股票
-		// var existingStock Stock
-		// if db.Where("stock_symbol = ?", dataSymbol).First(&existingStock).RecordNotFound() {
-		// 	// 如果不存在，則儲存到資料庫
-		// 	stock := Stock{
-		// 		StockSymbol:    dataSymbol,
-		// 		Price:          price,
-		// 		PriceChange:    priceChange,
-		// 		PriceChangePct: priceChangePct,
-		// 	}
+		fmt.Println("等待 wg.wait")
+		wg.Wait()
+		fmt.Println("等待 結束")
 
-		// 	// Save to database
-		// 	if err := db.Save(&stock).Error; err != nil {
-		// 		log.Println("Error saving to database:", err)
-		// 	}
-		// } else {
-		// 	fmt.Printf("Stock %s already exists in the database.\n", dataSymbol)
-		// }
+		close(stockDataCh)
+		fmt.Println("已關閉 channel")
 	}()
 
-	// 等待所有 goroutine 完成
-	wg.Wait()
-
-	// 關閉 channel
-	close(stockDataCh)
+	// 接收 channel 數據並將其存到資料庫中
+	fmt.Println("開始接收 channel 資訊")
+	for stockData := range stockDataCh {
+		if err := db.Save(&stockData).Error; err != nil {
+			log.Println("Error save to database:", err)
+		}
+		fmt.Printf("Save %s in the database\n", stockData.StockSymbol)
+	}
 
 	fmt.Println("Scraping and updating completed")
 
@@ -101,6 +90,11 @@ func getStockData(db *gorm.DB, symbol string) (Stock, error) {
 	c := colly.NewCollector(
 		colly.AllowedDomains("finance.yahoo.com"),
 	)
+
+	// 設置 http 請求之前的處理
+	c.OnRequest(func(r *colly.Request) {
+		fmt.Println("Visiting", r.URL)
+	})
 
 	// 查詢資料庫裡是否有相同的股票，將資料庫已存在的股票資訊存給 existingStock 這個變數
 	// 若過程發生錯誤，並且錯誤不是 record not found 的話，則返回錯誤
@@ -156,20 +150,21 @@ func getStockData(db *gorm.DB, symbol string) (Stock, error) {
 	// 等待一段時間確保所有 http 請求都完成
 	time.Sleep(2 * time.Second)
 
-	// 檢查 existingStock.ID != 0，代表資料庫已存在相同資料，並更新現有資訊
-	// 如果 existingStock.ID == 0，代表沒有相同資料，就創建一個
+	// 檢查 existingStock.ID != 0，代表資料庫已存在相同資料，更新最新資料後返回
+	// 如果 existingStock.ID == 0，代表沒有相同資料，直接返回原資料
 	if existingStock.ID != 0 {
+		fmt.Printf("Update %s data in the database.\n", existingStock.StockSymbol)
 		existingStock.Price = stockData.Price
 		existingStock.PriceChange = stockData.PriceChange
 		existingStock.PriceChangePct = stockData.PriceChangePct
-		if err := db.Save(&existingStock).Error; err != nil {
-			return Stock{}, err
-		}
+		// if err := db.Save(&existingStock).Error; err != nil {
+		// 	return Stock{}, err
+		// }
 		return existingStock, nil
 	} else {
-		if err := db.Create(&stockData).Error; err != nil {
-			return Stock{}, err
-		}
+		// if err := db.Create(&stockData).Error; err != nil {
+		// 	return Stock{}, err
+		// }
 		return stockData, nil
 	}
 }
