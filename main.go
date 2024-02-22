@@ -1,34 +1,31 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
+	db "scrap/database"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gocolly/colly/v2"
-	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"gorm.io/gorm"
 )
 
 // Stock struct represents the data model for the stocks.
 type Stock struct {
-	ID             uint   `gorm:"primary_key"`
-	StockSymbol    string `gorm:"column:stock_symbol"`
-	Price          float64
+	ID             uint    `gorm:"primary_key"`
+	StockSymbol    string  `gorm:"column:stock_symbol"`
+	Price          float64 `gorm:"column:price"`
 	PriceChange    float64 `gorm:"column:price_change"`
 	PriceChangePct float64 `gorm:"column:price_change_pct"`
 }
 
 func main() {
-	// Connect to MySQL database
-	db, err := gorm.Open("mysql", "root:greed9527@tcp(localhost:3306)/stockscrap?charset=utf8&parseTime=True&loc=Local")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	db := db.Connect()
 
 	// Auto Migrate the Stock model
 	db.AutoMigrate(&Stock{})
@@ -98,8 +95,9 @@ func getStockData(db *gorm.DB, symbol string) (Stock, error) {
 
 	// 查詢資料庫裡是否有相同的股票，將資料庫已存在的股票資訊存給 existingStock 這個變數
 	// 若過程發生錯誤，並且錯誤不是 record not found 的話，則返回錯誤
+	// 反之如果錯誤是 record not found 就繼續執行程式
 	var existingStock Stock
-	if err := db.Where("stock_symbol = ?", symbol).First(&existingStock).Error; err != nil && !gorm.IsRecordNotFoundError(err) {
+	if err := db.Where("stock_symbol = ?", symbol).Limit(1).Find(&existingStock).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return Stock{}, err
 	}
 
