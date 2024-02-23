@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	db "scrap/database"
+	line "scrap/lineNotify"
 	"strconv"
 	"sync"
 	"time"
@@ -44,7 +45,6 @@ func main() {
 		wg.Add(1)
 		go func(sym string) {
 			defer wg.Done()
-			defer fmt.Println("Done 結束")
 
 			// 獲取股票數據
 			stockData, err := getStockData(db, sym)
@@ -55,7 +55,6 @@ func main() {
 			}
 			// 將股票資訊傳送到 channel
 			stockDataCh <- stockData
-			fmt.Println("將資料傳進去 channel")
 		}(symbol)
 	}
 
@@ -66,7 +65,6 @@ func main() {
 		fmt.Println("等待 結束")
 
 		close(stockDataCh)
-		fmt.Println("已關閉 channel")
 	}()
 
 	// 接收 channel 數據並將其存到資料庫中
@@ -75,6 +73,7 @@ func main() {
 		if err := db.Save(&stockData).Error; err != nil {
 			log.Println("Error save to database:", err)
 		}
+		line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
 		fmt.Printf("Save %s in the database\n", stockData.StockSymbol)
 	}
 
