@@ -48,5 +48,5 @@ func Linenotify(symbol string, pricechangepct float64) {
 	}
 
 	// 顯示成功訊息
-	println("成功了! 穩賺的吧?")
+	println("成功了! 賺爛了！賺爛了！")
 }

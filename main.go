@@ -73,7 +73,11 @@ func main() {
 		if err := db.Save(&stockData).Error; err != nil {
 			log.Println("Error save to database:", err)
 		}
-		line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
+
+		// 若股票當下跌幅超過 5% 就觸發 line Notify
+		if stockData.PriceChangePct <= -5 {
+			line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
+		}
 		fmt.Printf("Save %s in the database\n", stockData.StockSymbol)
 	}
 
