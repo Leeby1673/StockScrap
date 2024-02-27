@@ -2,6 +2,7 @@ package db
 
 import (
 	"log"
+	"scrap/database/models"
 	"time"
 
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -18,6 +19,9 @@ func Connect() *gorm.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Auto Migrate the Stock model
+	db.AutoMigrate(&models.Stock{})
 
 	sqlDB, err := db.DB()
 	if err != nil {

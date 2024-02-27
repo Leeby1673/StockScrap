@@ -1,4 +1,4 @@
-package main
+package scrap
 
 import (
 	"errors"
@@ -6,31 +6,21 @@ import (
 	"log"
 	"regexp"
 	db "scrap/database"
+	"scrap/database/models"
 	line "scrap/lineNotify"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gocolly/colly/v2"
-
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"gorm.io/gorm"
 )
 
-// Stock struct represents the data model for the stocks.
-type Stock struct {
-	ID             uint    `gorm:"primary_key"`
-	StockSymbol    string  `gorm:"column:stock_symbol"`
-	Price          float64 `gorm:"column:price"`
-	PriceChange    float64 `gorm:"column:price_change"`
-	PriceChangePct float64 `gorm:"column:price_change_pct"`
-}
+type Stock = models.Stock
 
-func main() {
+func Scraper() {
 	db := db.Connect()
-
-	// Auto Migrate the Stock model
-	db.AutoMigrate(&Stock{})
-
 	// 股票代碼列表
 	var stockSymbols = []string{"AAPL", "TSLA", "NVDA"}
 
