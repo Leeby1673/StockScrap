@@ -19,6 +19,7 @@ func Golmy() *cobra.Command {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&flag, "flag", "f", "", "測試側")
+	rootCmd.AddCommand(CatchCmd())
 	rootCmd.AddCommand(SeeCmd())
 	rootCmd.AddCommand(DownCmd())
 
