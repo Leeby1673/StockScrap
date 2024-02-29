@@ -1,4 +1,4 @@
-package golmy
+package cmd
 
 import (
 	"fmt"

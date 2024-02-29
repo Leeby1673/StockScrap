@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	db "scrap/database"
-	"scrap/database/models"
-	line "scrap/lineNotify"
+	db "stockscrap/database"
+	"stockscrap/database/models"
+	line "stockscrap/lineNotify"
 	"strconv"
 	"sync"
 	"time"
@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Stock = models.Stock
+// type stock = *models.Stock
 
 func Scraper() {
 	db := db.Connect()
@@ -28,7 +28,7 @@ func Scraper() {
 	var wg sync.WaitGroup
 
 	// 創建一個 channel 來接收更新後的股票資料
-	stockDataCh := make(chan Stock)
+	stockDataCh := make(chan models.Stock)
 
 	// 啟動多個 goroutine 來處理不同的股票
 	for _, symbol := range stockSymbols {
@@ -68,13 +68,13 @@ func Scraper() {
 		if stockData.PriceChangePct <= -5 {
 			line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
 		}
-		fmt.Printf("Save %s in the database\n", stockData.StockSymbol)
+		fmt.Printf("儲存股票 %s 資訊到資料庫\n", stockData.StockSymbol)
 	}
 
-	fmt.Println("Scraping and updating completed")
 }
 
-func getStockData(db *gorm.DB, symbol string) (Stock, error) {
+// 爬取股票資料
+func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 	// 創建一個新的 collection
 	c := colly.NewCollector(
 		colly.AllowedDomains("finance.yahoo.com"),
@@ -82,19 +82,19 @@ func getStockData(db *gorm.DB, symbol string) (Stock, error) {
 
 	// 設置 http 請求之前的處理
 	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL)
+		fmt.Println("瀏覽網址:", r.URL)
 	})
 
 	// 查詢資料庫裡是否有相同的股票，將資料庫已存在的股票資訊存給 existingStock 這個變數
 	// 若過程發生錯誤，並且錯誤不是 record not found 的話，則返回錯誤
 	// 反之如果錯誤是 record not found 就繼續執行程式
-	var existingStock Stock
+	var existingStock models.Stock
 	if err := db.Where("stock_symbol = ?", symbol).Limit(1).Find(&existingStock).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return Stock{}, err
+		return models.Stock{}, err
 	}
 
 	// 定義股票結構
-	var stockData Stock
+	var stockData models.Stock
 
 	// 設置傳回函數
 	c.OnHTML("div[class='D(ib) Mend(20px)']", func(e *colly.HTMLElement) {
@@ -143,7 +143,7 @@ func getStockData(db *gorm.DB, symbol string) (Stock, error) {
 	// 檢查 existingStock.ID != 0，代表資料庫已存在相同資料，更新最新資料後返回
 	// 如果 existingStock.ID == 0，代表沒有相同資料，直接返回原資料
 	if existingStock.ID != 0 {
-		fmt.Printf("Update %s data in the database.\n", existingStock.StockSymbol)
+		fmt.Printf("更新股票 %s 資訊\n", existingStock.StockSymbol)
 		existingStock.Price = stockData.Price
 		existingStock.PriceChange = stockData.PriceChange
 		existingStock.PriceChangePct = stockData.PriceChangePct
@@ -159,6 +159,7 @@ func getStockData(db *gorm.DB, symbol string) (Stock, error) {
 	}
 }
 
+// 針對股票百分比數據做格式處理
 func parseWithPercentSymbol(value string) (float64, error) {
 	// 使用正則表達式去除非數字字符，保留百分比符號
 	re := regexp.MustCompile(`[^\d.-]+`)

@@ -2,7 +2,7 @@ package db
 
 import (
 	"log"
-	"scrap/database/models"
+	"stockscrap/database/models"
 	"time"
 
 	_ "github.com/jinzhu/gorm/dialects/mysql"

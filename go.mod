@@ -1,4 +1,4 @@
-module scrap
+module stockscrap
 
 go 1.18
 
