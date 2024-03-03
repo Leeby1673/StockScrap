@@ -1,6 +1,7 @@
 package scrap
 
 import (
+	"fmt"
 	"log"
 	db "stockscrap/database"
 	"stockscrap/database/models"
@@ -8,19 +9,23 @@ import (
 	"gorm.io/gorm"
 )
 
-func Deleter() {
+func Deleter(stockSymbols []string) {
 	db := db.Connect()
 
-	if err := deleteStockData(db); err != nil {
+	if err := deleteStockData(db, stockSymbols); err != nil {
 		log.Fatal("股票刪除失敗, 想不到連當韭菜都不夠格:", err)
 	}
 
 }
 
-func deleteStockData(db *gorm.DB) error {
+func deleteStockData(db *gorm.DB, stockSymbols []string) error {
+	var stockDatas []models.Stock
 	// 抓取欲刪除的股票
-	if err := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&models.Stock{}).Error; err != nil {
-		return err
+	for _, symbol := range stockSymbols {
+		if err := db.Where("stock_symbol = ?", symbol).Delete(&stockDatas).Error; err != nil {
+			return err
+		}
+		fmt.Printf("刪除 %s, 解套了嗎?\n", symbol)
 	}
 
 	return nil

@@ -9,23 +9,37 @@ import (
 	"gorm.io/gorm"
 )
 
-func Reader() {
+func Reader(stockSymbols []string) {
 	db := db.Connect()
 
-	if err := readStockData(db); err != nil {
+	if err := readStockData(db, stockSymbols); err != nil {
 		log.Fatal("查看股票失敗, 國防布搞屁:", err)
 	}
 }
 
 // 顯示資料庫的股票
-func readStockData(db *gorm.DB) error {
+func readStockData(db *gorm.DB, stockSymbols []string) error {
 	var stockDatas []models.Stock
-	if err := db.Find(&stockDatas).Error; err != nil {
-		return err
-	}
+	// 若使用沒有提供參數，給資料庫全部的股票資訊
+	// 有提供指定參數的話，就給參數指定的股票資訊
+	if len(stockSymbols) == 0 {
+		if err := db.Find(&stockDatas).Error; err != nil {
+			return err
+		}
 
-	for _, stock := range stockDatas {
-		fmt.Printf("股票代號: %s, 價格: %.1f, 漲跌價格: %.1f, 漲跌百分比: %.1f%%\n", stock.StockSymbol, stock.Price, stock.PriceChange, stock.PriceChangePct)
+		for _, stock := range stockDatas {
+			fmt.Printf("股票代號: %s, 價格: %.1f, 漲跌價格: %.1f, 漲跌百分比: %.1f%%\n", stock.StockSymbol, stock.Price, stock.PriceChange, stock.PriceChangePct)
+		}
+	} else {
+		for _, symbol := range stockSymbols {
+			if err := db.Where("stock_symbol = ?", symbol).Find(&stockDatas).Error; err != nil {
+				return err
+			}
+			for _, stock := range stockDatas {
+				fmt.Printf("股票代號: %s, 價格: %.1f, 漲跌價格: %.1f, 漲跌百分比: %.1f%%\n", stock.StockSymbol, stock.Price, stock.PriceChange, stock.PriceChangePct)
+			}
+		}
+
 	}
 
 	return nil

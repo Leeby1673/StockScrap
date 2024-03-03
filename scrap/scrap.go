@@ -9,20 +9,26 @@ import (
 	"stockscrap/database/models"
 	line "stockscrap/lineNotify"
 	"strconv"
+	"strings"
 	"sync"
-	"time"
 
 	"github.com/gocolly/colly/v2"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"gorm.io/gorm"
 )
 
-// type stock = *models.Stock
+// 創建一個新的 collection
+var c = colly.NewCollector(
+	colly.AllowedDomains("finance.yahoo.com"),
+)
 
-func Scraper() {
+func init() {
+	// 設置 併發數量
+	c.Limit(&colly.LimitRule{Parallelism: 3})
+}
+
+func Scraper(stockSymbols []string) {
 	db := db.Connect()
-	// 股票代碼列表
-	var stockSymbols = []string{"AAPL", "TSLA", "NVDA"}
 
 	// 創建一個等待組，以確保所有 goroutine 都完成後才繼續
 	var wg sync.WaitGroup
@@ -30,12 +36,19 @@ func Scraper() {
 	// 創建一個 channel 來接收更新後的股票資料
 	stockDataCh := make(chan models.Stock)
 
+	// 設置 http 請求之前的處理
+	fmt.Println("OnRequest 人呢")
+	c.OnRequest(func(r *colly.Request) {
+		fmt.Println("瀏覽網址:", r.URL)
+		fmt.Println("OnRequest 被呼叫了")
+	})
+	fmt.Println("OnRequest 人呢")
+
 	// 啟動多個 goroutine 來處理不同的股票
 	for _, symbol := range stockSymbols {
 		wg.Add(1)
 		go func(sym string) {
 			defer wg.Done()
-
 			// 獲取股票數據
 			stockData, err := getStockData(db, sym)
 			fmt.Println("傳入 channel 之前")
@@ -50,15 +63,13 @@ func Scraper() {
 
 	// 等待所有 goroutine 完成並關閉 channel
 	go func() {
-		fmt.Println("等待 wg.wait")
 		wg.Wait()
-		fmt.Println("等待 結束")
+		fmt.Println("wg.等待 結束")
 
 		close(stockDataCh)
 	}()
-
+	c.Wait()
 	// 接收 channel 數據並將其存到資料庫中
-	fmt.Println("開始接收 channel 資訊")
 	for stockData := range stockDataCh {
 		if err := db.Save(&stockData).Error; err != nil {
 			log.Println("Error save to database:", err)
@@ -75,15 +86,6 @@ func Scraper() {
 
 // 爬取股票資料
 func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
-	// 創建一個新的 collection
-	c := colly.NewCollector(
-		colly.AllowedDomains("finance.yahoo.com"),
-	)
-
-	// 設置 http 請求之前的處理
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("瀏覽網址:", r.URL)
-	})
 
 	// 查詢資料庫裡是否有相同的股票，將資料庫已存在的股票資訊存給 existingStock 這個變數
 	// 若過程發生錯誤，並且錯誤不是 record not found 的話，則返回錯誤
@@ -101,8 +103,9 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 		// 抓取股票代號
 		stockData.StockSymbol = symbol
 
-		// 抓取價格相關訊息
+		// 抓取價格相關訊息, 若遇到千位以上, 取消字串中間的逗號
 		priceStr := e.ChildText("fin-streamer[data-test='qsp-price']")
+		priceStr = strings.Replace(priceStr, ",", "", -1)
 		price, err := strconv.ParseFloat(priceStr, 64)
 		if err != nil {
 			log.Println("Error parsing price:", err)
@@ -119,7 +122,7 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 		}
 		stockData.PriceChange = priceChange
 
-		// 抓取價格百分比
+		// 抓取價格百分比, 呼叫 parseWithPercentSymbol() 函式進行處理
 		priceChangePctStr := e.ChildText("fin-streamer[data-field='regularMarketChangePercent'] span")
 		priceChangePct, err := parseWithPercentSymbol(priceChangePctStr)
 		if err != nil {
@@ -136,9 +139,8 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 	if err != nil {
 		return stockData, err
 	}
-
 	// 等待一段時間確保所有 http 請求都完成
-	time.Sleep(2 * time.Second)
+	// time.Sleep(2 * time.Second)
 
 	// 檢查 existingStock.ID != 0，代表資料庫已存在相同資料，更新最新資料後返回
 	// 如果 existingStock.ID == 0，代表沒有相同資料，直接返回原資料
