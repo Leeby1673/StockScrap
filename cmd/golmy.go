@@ -6,8 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flag string
-
 // 建立 golmy 根命令
 func Golmy() *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -18,17 +16,10 @@ func Golmy() *cobra.Command {
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&flag, "flag", "f", "", "測試側")
-	rootCmd.AddCommand(CatchCmd())
-	rootCmd.AddCommand(SeeCmd())
-	rootCmd.AddCommand(DownCmd())
+	seecmd.Flags().IntVarP(&priceLimit, "printLimit", "p", 0, "查看股票價格設定 N 以下")
+	rootCmd.AddCommand(catchcmd)
+	rootCmd.AddCommand(seecmd)
+	rootCmd.AddCommand(downcmd)
 
 	return rootCmd
 }
-
-// func Execute() {
-// 	if err := rootCmd.Execute(); err != nil {
-// 		fmt.Println("注定當韭菜, 你的韭菜編號:", err)
-// 		os.Exit(1)
-// 	}
-// }

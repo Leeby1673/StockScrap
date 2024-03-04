@@ -7,16 +7,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func SeeCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "see [stockSymbols...]",
-		Short: "查看股票資訊",
-		Run: func(cmd *cobra.Command, args []string) {
+var priceLimit int
+
+var seecmd = &cobra.Command{
+	Use:   "see [stockSymbols...]",
+	Short: "查看股票資訊",
+	Run: func(cmd *cobra.Command, args []string) {
+
+		// 若輸入 -p=N flag 顯示 N 價格以下的股票
+		if priceLimit == 0 {
 			// 實現查看股票資訊
 			scrap.Reader(args)
-			fmt.Println("成功查看股票資訊")
-		},
-	}
-
-	return cmd
+		} else {
+			scrap.PriceReader(priceLimit)
+		}
+		fmt.Println("成功查看股票資訊")
+	},
 }
