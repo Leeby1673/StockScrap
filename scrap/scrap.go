@@ -105,7 +105,7 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 		priceStr = strings.Replace(priceStr, ",", "", -1)
 		price, err := strconv.ParseFloat(priceStr, 64)
 		if err != nil {
-			log.Println("Error parsing price:", err)
+			log.Println("價格解析錯誤:", err)
 			return
 		}
 		stockData.Price = price
@@ -114,7 +114,7 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 		priceChangeStr := e.ChildText("fin-streamer[data-test='qsp-price-change'] span")
 		priceChange, err := strconv.ParseFloat(priceChangeStr, 64)
 		if err != nil {
-			log.Println("Error parsing price change:", err)
+			log.Println("價格變化解析錯誤:", err)
 			return
 		}
 		stockData.PriceChange = priceChange
@@ -123,7 +123,7 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 		priceChangePctStr := e.ChildText("fin-streamer[data-field='regularMarketChangePercent'] span")
 		priceChangePct, err := parseWithPercentSymbol(priceChangePctStr)
 		if err != nil {
-			log.Println("Error parsing price change percentage:", err)
+			log.Println("漲跌幅百分比解析錯誤:", err)
 			return
 		}
 		stockData.PriceChangePct = priceChangePct
