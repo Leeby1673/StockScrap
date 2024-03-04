@@ -32,7 +32,8 @@ func readStockData(db *gorm.DB, stockSymbols []string) error {
 		}
 	} else {
 		for _, symbol := range stockSymbols {
-			if err := db.Where("stock_symbol = ?", symbol).Find(&stockDatas).Error; err != nil {
+			if err := db.Where("stock_symbol = ?", symbol).First(&stockDatas).Error; err != nil {
+				log.Printf("資料庫內找不到 %s\n", symbol)
 				return err
 			}
 			for _, stock := range stockDatas {

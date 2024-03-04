@@ -17,13 +17,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// 錯誤處理
+var ErrorSymbolNotFound = errors.New("看好股票代號有很難嗎!?")
+
 // 創建一個新的 collection
 var c = colly.NewCollector(
 	colly.AllowedDomains("finance.yahoo.com"),
 )
 
+// 設置 併發數量
 func init() {
-	// 設置 併發數量
 	c.Limit(&colly.LimitRule{Parallelism: 3})
 }
 
@@ -37,12 +40,9 @@ func Scraper(stockSymbols []string) {
 	stockDataCh := make(chan models.Stock)
 
 	// 設置 http 請求之前的處理
-	fmt.Println("OnRequest 人呢")
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Println("瀏覽網址:", r.URL)
-		fmt.Println("OnRequest 被呼叫了")
 	})
-	fmt.Println("OnRequest 人呢")
 
 	// 啟動多個 goroutine 來處理不同的股票
 	for _, symbol := range stockSymbols {
@@ -53,7 +53,7 @@ func Scraper(stockSymbols []string) {
 			stockData, err := getStockData(db, sym)
 			fmt.Println("傳入 channel 之前")
 			if err != nil {
-				log.Printf("Error getting stock data for %s:%v\n", sym, err)
+				log.Printf("爬蟲過程錯誤 %s:%v\n", sym, err)
 				return
 			}
 			// 將股票資訊傳送到 channel
@@ -65,14 +65,13 @@ func Scraper(stockSymbols []string) {
 	go func() {
 		wg.Wait()
 		fmt.Println("wg.等待 結束")
-
 		close(stockDataCh)
 	}()
 	c.Wait()
 	// 接收 channel 數據並將其存到資料庫中
 	for stockData := range stockDataCh {
 		if err := db.Save(&stockData).Error; err != nil {
-			log.Println("Error save to database:", err)
+			log.Println("儲存資料庫錯誤:", err)
 		}
 
 		// 若股票當下跌幅超過 5% 就觸發 line Notify
@@ -94,10 +93,8 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 	if err := db.Where("stock_symbol = ?", symbol).Limit(1).Find(&existingStock).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.Stock{}, err
 	}
-
 	// 定義股票結構
 	var stockData models.Stock
-
 	// 設置傳回函數
 	c.OnHTML("div[class='D(ib) Mend(20px)']", func(e *colly.HTMLElement) {
 		// 抓取股票代號
@@ -139,8 +136,11 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 	if err != nil {
 		return stockData, err
 	}
-	// 等待一段時間確保所有 http 請求都完成
-	// time.Sleep(2 * time.Second)
+
+	// 若參數輸錯誤，會抓到零值，返回錯誤
+	if stockData.StockSymbol == "" {
+		return stockData, ErrorSymbolNotFound
+	}
 
 	// 檢查 existingStock.ID != 0，代表資料庫已存在相同資料，更新最新資料後返回
 	// 如果 existingStock.ID == 0，代表沒有相同資料，直接返回原資料
@@ -149,14 +149,8 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 		existingStock.Price = stockData.Price
 		existingStock.PriceChange = stockData.PriceChange
 		existingStock.PriceChangePct = stockData.PriceChangePct
-		// if err := db.Save(&existingStock).Error; err != nil {
-		// 	return Stock{}, err
-		// }
 		return existingStock, nil
 	} else {
-		// if err := db.Create(&stockData).Error; err != nil {
-		// 	return Stock{}, err
-		// }
 		return stockData, nil
 	}
 }

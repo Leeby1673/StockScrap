@@ -23,6 +23,7 @@ func deleteStockData(db *gorm.DB, stockSymbols []string) error {
 	// 抓取欲刪除的股票
 	for _, symbol := range stockSymbols {
 		if err := db.Where("stock_symbol = ?", symbol).Delete(&stockDatas).Error; err != nil {
+			log.Printf("資料庫沒有 %s", symbol)
 			return err
 		}
 		fmt.Printf("刪除 %s, 解套了嗎?\n", symbol)
