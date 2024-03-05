@@ -1,6 +1,6 @@
 package models
 
-// Stock struct represents the data model for the stocks.
+// 股票結構.
 type Stock struct {
 	ID             uint    `gorm:"primary_key"`
 	StockSymbol    string  `gorm:"column:stock_symbol"`

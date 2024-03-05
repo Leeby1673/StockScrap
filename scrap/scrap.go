@@ -20,7 +20,7 @@ import (
 // 錯誤處理
 var ErrorSymbolNotFound = errors.New("看好股票代號有很難嗎!?")
 
-// 創建一個新的 collection
+// 創建一個 collection
 var c = colly.NewCollector(
 	colly.AllowedDomains("finance.yahoo.com"),
 )
@@ -28,8 +28,15 @@ var c = colly.NewCollector(
 // 設置 併發數量
 func init() {
 	c.Limit(&colly.LimitRule{Parallelism: 3})
+	c.AllowURLRevisit = true
+	// 設置 http 請求之前的處理
+	c.OnRequest(func(r *colly.Request) {
+		fmt.Println("瀏覽網址:", r.URL)
+	})
+
 }
 
+// 一次性爬取器
 func Scraper(stockSymbols []string) {
 	db := db.Connect()
 
@@ -40,9 +47,9 @@ func Scraper(stockSymbols []string) {
 	stockDataCh := make(chan models.Stock)
 
 	// 設置 http 請求之前的處理
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("瀏覽網址:", r.URL)
-	})
+	// c.OnRequest(func(r *colly.Request) {
+	// 	fmt.Println("瀏覽網址:", r.URL)
+	// })
 
 	// 啟動多個 goroutine 來處理不同的股票
 	for _, symbol := range stockSymbols {
@@ -83,7 +90,7 @@ func Scraper(stockSymbols []string) {
 
 }
 
-// 爬取股票資料
+// 一次爬取股票資料
 func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 
 	// 查詢資料庫裡是否有相同的股票，將資料庫已存在的股票資訊存給 existingStock 這個變數
@@ -153,6 +160,105 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 	} else {
 		return stockData, nil
 	}
+}
+
+// 持續性監測器
+func OngoingScraper(stockSymbols []string) {
+
+	// 創建一個等待組，以確保所有 goroutine 都完成後才繼續
+	var wg sync.WaitGroup
+
+	// 創建一個 channel 來接收更新後的股票資料
+	stockDataCh := make(chan models.Stock)
+
+	// 啟動多個 goroutine 來處理不同的股票
+	for _, symbol := range stockSymbols {
+		wg.Add(1)
+		go func(sym string) {
+			defer wg.Done()
+			// 獲取股票數據
+			stockData, err := ongoingGetStockData(sym)
+			if err != nil {
+				log.Printf("爬蟲過程錯誤 %s:%v\n", sym, err)
+				return
+			}
+			// 將股票資訊傳送到 channel
+			stockDataCh <- stockData
+		}(symbol)
+	}
+
+	// 等待所有 goroutine 完成並關閉 channel
+	go func() {
+		wg.Wait()
+		close(stockDataCh)
+	}()
+	c.Wait()
+	// 接收 channel 數據並將其存到資料庫中
+	for stock := range stockDataCh {
+
+		fmt.Printf("股票代號: %s, 價格: %.1f, 漲跌價格: %.1f, 漲跌百分比: %.1f%%\n", stock.StockSymbol, stock.Price, stock.PriceChange, stock.PriceChangePct)
+
+		// 若股票當下跌幅超過 5% 就觸發 line Notify
+		// if stockData.PriceChangePct <= -5 {
+		// 	line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
+		// }
+		// fmt.Print("監測完成\n")
+
+	}
+}
+
+// 持續監測股票資料
+func ongoingGetStockData(symbol string) (models.Stock, error) {
+
+	// 定義股票結構
+	var stockData models.Stock
+	// 設置傳回函數
+	c.OnHTML("div[class='D(ib) Mend(20px)']", func(e *colly.HTMLElement) {
+		// 抓取股票代號
+		stockData.StockSymbol = symbol
+
+		// 抓取價格相關訊息, 若遇到千位以上, 取消字串中間的逗號
+		priceStr := e.ChildText("fin-streamer[data-test='qsp-price']")
+		priceStr = strings.Replace(priceStr, ",", "", -1)
+		price, err := strconv.ParseFloat(priceStr, 64)
+		if err != nil {
+			log.Println("價格解析錯誤:", err)
+			return
+		}
+		stockData.Price = price
+
+		// 抓取價格變化
+		priceChangeStr := e.ChildText("fin-streamer[data-test='qsp-price-change'] span")
+		priceChange, err := strconv.ParseFloat(priceChangeStr, 64)
+		if err != nil {
+			log.Println("價格變化解析錯誤:", err)
+			return
+		}
+		stockData.PriceChange = priceChange
+
+		// 抓取價格百分比, 呼叫 parseWithPercentSymbol() 函式進行處理
+		priceChangePctStr := e.ChildText("fin-streamer[data-field='regularMarketChangePercent'] span")
+		priceChangePct, err := parseWithPercentSymbol(priceChangePctStr)
+		if err != nil {
+			log.Println("漲跌幅百分比解析錯誤:", err)
+			return
+		}
+		stockData.PriceChangePct = priceChangePct
+
+	})
+
+	// 訪問股票頁面
+	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s", symbol)
+	err := c.Visit(url)
+	if err != nil {
+		return stockData, err
+	}
+
+	// 若參數輸錯誤，會抓到零值，返回錯誤
+	if stockData.StockSymbol == "" {
+		return stockData, ErrorSymbolNotFound
+	}
+	return stockData, nil
 }
 
 // 針對股票百分比數據做格式處理
