@@ -25,7 +25,7 @@ var c = colly.NewCollector(
 	colly.AllowedDomains("finance.yahoo.com"),
 )
 
-// 設置 併發數量
+// 設置 併發數量、請求前顯示網址
 func init() {
 	c.Limit(&colly.LimitRule{Parallelism: 3})
 	c.AllowURLRevisit = true
@@ -37,7 +37,7 @@ func init() {
 }
 
 // 一次性爬取器
-func Scraper(stockSymbols []string) {
+func Scraper(stockSymbols []string, lineNotifyPercent int) {
 	db := db.Connect()
 
 	// 創建一個等待組，以確保所有 goroutine 都完成後才繼續
@@ -45,11 +45,6 @@ func Scraper(stockSymbols []string) {
 
 	// 創建一個 channel 來接收更新後的股票資料
 	stockDataCh := make(chan models.Stock)
-
-	// 設置 http 請求之前的處理
-	// c.OnRequest(func(r *colly.Request) {
-	// 	fmt.Println("瀏覽網址:", r.URL)
-	// })
 
 	// 啟動多個 goroutine 來處理不同的股票
 	for _, symbol := range stockSymbols {
@@ -81,10 +76,17 @@ func Scraper(stockSymbols []string) {
 			log.Println("儲存資料庫錯誤:", err)
 		}
 
-		// 若股票當下跌幅超過 5% 就觸發 line Notify
-		if stockData.PriceChangePct <= -5 {
-			line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
+		// 定義一個變數決定函式是否帶有參數
+		haslineNotify := true
+
+		if haslineNotify && lineNotifyPercent > 0 {
+			// 有lineNotify、正數
+			line.PositiveLineNotify(stockData.StockSymbol, stockData.PriceChangePct)
+		} else if haslineNotify && lineNotifyPercent < 0 {
+			// 有lineNotify、負數
+			line.NegativeLineNotify(stockData.StockSymbol, stockData.PriceChangePct)
 		}
+
 		fmt.Printf("儲存股票 %s 資訊到資料庫\n", stockData.StockSymbol)
 	}
 
@@ -163,7 +165,7 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 }
 
 // 持續性監測器
-func OngoingScraper(stockSymbols []string) {
+func OngoingScraper(stockSymbols []string, lineNotifyPercent int) {
 
 	// 創建一個等待組，以確保所有 goroutine 都完成後才繼續
 	var wg sync.WaitGroup
@@ -198,10 +200,16 @@ func OngoingScraper(stockSymbols []string) {
 
 		fmt.Printf("股票代號: %s, 價格: %.1f, 漲跌價格: %.1f, 漲跌百分比: %.1f%%\n", stock.StockSymbol, stock.Price, stock.PriceChange, stock.PriceChangePct)
 
-		// 若股票當下跌幅超過 5% 就觸發 line Notify
-		// if stockData.PriceChangePct <= -5 {
-		// 	line.Linenotify(stockData.StockSymbol, stockData.PriceChangePct)
-		// }
+		// 定義一個變數決定函式是否帶有參數
+		haslineNotify := true
+
+		if haslineNotify && lineNotifyPercent > 0 {
+			// 有lineNotify、正數
+			line.PositiveLineNotify(stock.StockSymbol, stock.PriceChangePct)
+		} else if haslineNotify && lineNotifyPercent < 0 {
+			// 有lineNotify、負數
+			line.NegativeLineNotify(stock.StockSymbol, stock.PriceChangePct)
+		}
 		// fmt.Print("監測完成\n")
 
 	}

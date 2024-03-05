@@ -20,9 +20,16 @@ var catchcmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// 需除錯 catch -o 沒有參數的情況
 		// 優先序列 給予參數 > 要哪個模式 以及觸發 line通知
-		// 持續性監測
-		if ongoing {
-			scrap.OngoingScraper(args)
+		if len(args) <= 0 {
+			// 沒有給參數
+			fmt.Println("輸入想找的股票代碼, 連這都不會還想發財?")
+		} else if len(args) > 0 && !ongoing {
+			// 有參數、一次性抓取
+			scrap.Scraper(args, lineNotifyPercent)
+			fmt.Println("成功抓取股票資訊")
+		} else if len(args) > 0 && ongoing {
+			// 有參數、持續性監測
+			scrap.OngoingScraper(args, lineNotifyPercent)
 
 			ticker := time.NewTicker(15 * time.Second)
 			defer ticker.Stop()
@@ -34,20 +41,12 @@ var catchcmd = &cobra.Command{
 			for {
 				select {
 				case <-ticker.C:
-					scrap.OngoingScraper(args)
+					scrap.OngoingScraper(args, lineNotifyPercent)
 				case <-quit:
 					fmt.Println("結束監測")
 					return
 				}
 			}
-		}
-
-		// 一次性抓取
-		if len(args) > 0 {
-			scrap.Scraper(args)
-			fmt.Println("成功抓取股票資訊")
-		} else {
-			fmt.Println("輸入想找的股票代碼, 連這都不會還想發財?")
 		}
 
 	},
