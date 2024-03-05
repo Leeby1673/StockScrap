@@ -7,6 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var ongoing bool
+var lineNotifyPercent int
+
 var catchcmd = &cobra.Command{
 	Use:   "catch [stockSymbols...]",
 	Short: "抓取股票資訊 catch <args>, args 替換成股票代碼, 例: AVGO",

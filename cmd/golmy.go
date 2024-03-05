@@ -17,6 +17,8 @@ func Golmy() *cobra.Command {
 	}
 
 	seecmd.Flags().IntVarP(&priceLimit, "printLimit", "p", 0, "查看股票價格設定 N 以下")
+	catchcmd.Flags().BoolVarP(&ongoing, "ongoing", "o", false, "啟動持續監測，不會把資料存進資料庫")
+	catchcmd.Flags().IntVarP(&lineNotifyPercent, "ineNotifyPercent", "line", -5, "設定多少漲跌幅，觸發 Line Notify")
 	rootCmd.AddCommand(catchcmd)
 	rootCmd.AddCommand(seecmd)
 	rootCmd.AddCommand(downcmd)
