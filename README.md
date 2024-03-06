@@ -3,17 +3,35 @@
 **Overview:**
 This program fetches US stock information from Yahoo Finance and stores it in a database. If the program detects a stock price drop exceeding five percent, it triggers a Line notification. Additionally, it offers subcommands to view and delete stock data from the database.
 
-**Usage:**
-Main Command: 
+# Usage:
+### Main Command: 
 
 golmy
 
-Subcommands:
+### Subcommands:
 
-catch "stock symbols...": Fetch specified stocks.
+**catch "symbols..."**: Fetch specified stocks and store the stock information in the database.
 
-see: View all stocks in the database.
+**-o**: Activate ongoing mode, checking every 15 seconds, without storing stock information in the database, "Ctrl+C" to exit the program.
 
-see "stock symbols...": View specified stocks in the database.
+**-l**: Activate Line Notify, input parameters required; trigger Line Notify when the stock price changes by n%.
 
-down "stock symbols...": Delete specified stocks from the database.
+**Example**: go run main.go catch NVDA -o -l=5
+
+Fetch NVIDIA stocks, activate continuous monitoring mode, and trigger Line Notify when there is a 5% increase.
+
+**see**: If no parameter is provided, view all stock information in the database.
+
+**see "symbols..."**: If a parameter is provided, view information for specified stocks in the database.
+
+**-p**: View all stocks in the database with prices below n, requiring input parameters but no symbols.
+
+**Example**: go run main.go see MU or go run main.go see -p=100
+
+View information for Micron stocks in the database or view stocks in the database priced below $100.
+
+**down "symbols..."**: Delete information for specified stocks from the database.
+
+**Example**: go run main.go down TSLA
+
+Delete information for Tesla stocks from the database.

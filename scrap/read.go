@@ -65,6 +65,7 @@ func priceStockData(db *gorm.DB, priceLimit int) error {
 		return result.Error
 	}
 
+	// 資料庫沒有找到設定值以下的股票
 	if result.RowsAffected == 0 {
 		fmt.Println("買什麼都漲的意思嗎? to the moon!")
 		return nil

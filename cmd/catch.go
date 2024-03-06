@@ -40,8 +40,11 @@ var catchcmd = &cobra.Command{
 			// fmt.Println("監測開始")
 			for {
 				select {
+				// 當 C channel 收到訊號時觸發
 				case <-ticker.C:
 					scrap.OngoingScraper(args, lineNotifyPercent)
+
+				// 收到中斷訊號時觸發
 				case <-quit:
 					fmt.Println("結束監測")
 					return
