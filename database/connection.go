@@ -10,8 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// var DB *gorm.DB
-
 func Connect() *gorm.DB {
 	// Connect to MySQL database
 	dsn := "root:greed9527@tcp(localhost:3306)/stockscrap?charset=utf8&parseTime=True&loc=Local"
