@@ -16,7 +16,7 @@ func PositiveLineNotify(symbol string, pricechangepct float64) {
 	// 要發送的訊息內容
 	// 代入股票代號、顯示漲跌百分比
 	// 判斷使用者呼叫的 Line Notify 為正數還負數
-
+	fmt.Println("Line Notify啟動")
 	message := fmt.Sprintf("%s 都漲 %.2f%% 了, 該倒貨了吧?", symbol, pricechangepct)
 	message = url.QueryEscape(message)
 

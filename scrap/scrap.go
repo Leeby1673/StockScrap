@@ -37,7 +37,7 @@ func init() {
 }
 
 // 一次性爬取器
-func Scraper(stockSymbols []string, lineNotifyPercent int) {
+func Scraper(stockSymbols []string, lineNotifyPercent float64) {
 	db := db.Connect()
 
 	// 創建一個等待組，以確保所有 goroutine 都完成後才繼續
@@ -53,7 +53,7 @@ func Scraper(stockSymbols []string, lineNotifyPercent int) {
 			defer wg.Done()
 			// 獲取股票數據
 			stockData, err := getStockData(db, sym)
-			fmt.Println("傳入 channel 之前")
+			// fmt.Println("傳入 channel 之前")
 			if err != nil {
 				log.Printf("爬蟲過程錯誤 %s:%v\n", sym, err)
 				return
@@ -66,7 +66,7 @@ func Scraper(stockSymbols []string, lineNotifyPercent int) {
 	// 等待所有 goroutine 完成並關閉 channel
 	go func() {
 		wg.Wait()
-		fmt.Println("wg.等待 結束")
+		// fmt.Println("wg.等待 結束")
 		close(stockDataCh)
 	}()
 	c.Wait()
@@ -79,17 +79,16 @@ func Scraper(stockSymbols []string, lineNotifyPercent int) {
 		// 定義一個變數決定函式是否帶有參數
 		haslineNotify := true
 
-		if haslineNotify && lineNotifyPercent > 0 {
-			// 有lineNotify、正數
+		if haslineNotify && lineNotifyPercent > 0 && stockData.PriceChangePct > lineNotifyPercent {
+			// 有lineNotify、正數、數字大於設定值
 			line.PositiveLineNotify(stockData.StockSymbol, stockData.PriceChangePct)
-		} else if haslineNotify && lineNotifyPercent < 0 {
-			// 有lineNotify、負數
+		} else if haslineNotify && lineNotifyPercent < 0 && stockData.PriceChangePct < lineNotifyPercent {
+			// 有lineNotify、負數、數字小於設定值
 			line.NegativeLineNotify(stockData.StockSymbol, stockData.PriceChangePct)
 		}
 
 		fmt.Printf("儲存股票 %s 資訊到資料庫\n", stockData.StockSymbol)
 	}
-
 }
 
 // 一次爬取股票資料
@@ -165,7 +164,7 @@ func getStockData(db *gorm.DB, symbol string) (models.Stock, error) {
 }
 
 // 持續性監測器
-func OngoingScraper(stockSymbols []string, lineNotifyPercent int) {
+func OngoingScraper(stockSymbols []string, lineNotifyPercent float64) {
 
 	// 創建一個等待組，以確保所有 goroutine 都完成後才繼續
 	var wg sync.WaitGroup

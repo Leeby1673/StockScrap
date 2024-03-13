@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestConnectWithGorm(t *testing.T) {
+func TestConnect(t *testing.T) {
 	// 連接到 MySQL 資料庫
 	dsn := "root:greed9527@tcp(localhost:3306)/stockscrap?charset=utf8&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
